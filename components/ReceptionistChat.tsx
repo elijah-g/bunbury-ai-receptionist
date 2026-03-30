@@ -251,12 +251,17 @@ function LeadCapturedBanner({ leadData }: LeadCapturedBannerProps) {
 
 export const ReceptionistChat = forwardRef<ReceptionistChatHandle>(
   function ReceptionistChat(_props, ref) {
+    const SESSION_LIMIT = 10;
+
     const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE]);
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [leadCaptured, setLeadCaptured] = useState(false);
     const [leadData, setLeadData] = useState<LeadData | null>(null);
+    const [sessionEnded, setSessionEnded] = useState(false);
+
+    const userTurns = messages.filter((m) => m.role === "user").length;
 
     const bottomRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -276,7 +281,7 @@ export const ReceptionistChat = forwardRef<ReceptionistChatHandle>(
     async function handleSubmit(e: React.FormEvent) {
       e.preventDefault();
       const text = input.trim();
-      if (!text || loading) return;
+      if (!text || loading || sessionEnded) return;
 
       const userMessage: Message = { role: "user", content: text };
       const updatedMessages = [...messages, userMessage];
@@ -307,16 +312,26 @@ export const ReceptionistChat = forwardRef<ReceptionistChatHandle>(
           setLeadCaptured(true);
           setLeadData(data.leadData ?? null);
         }
+
+        // End session after limit is reached
+        const newUserTurns = updatedMessages.filter((m) => m.role === "user").length;
+        if (newUserTurns >= SESSION_LIMIT) {
+          setSessionEnded(true);
+        }
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to send message"
-        );
+        if (err instanceof Error && err.message.includes("Demo session limit")) {
+          setSessionEnded(true);
+        } else {
+          setError(
+            err instanceof Error ? err.message : "Failed to send message"
+          );
+        }
       } finally {
         setLoading(false);
       }
     }
 
-    const canSubmit = !loading && input.trim().length > 0;
+    const canSubmit = !loading && !sessionEnded && input.trim().length > 0;
 
     return (
       <div
@@ -388,10 +403,10 @@ export const ReceptionistChat = forwardRef<ReceptionistChatHandle>(
           <input
             ref={inputRef}
             type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type a message…"
-            disabled={loading}
+            value={sessionEnded ? "" : input}
+            onChange={(e) => !sessionEnded && setInput(e.target.value)}
+            placeholder={sessionEnded ? "Demo session ended — refresh to start again" : "Type a message…"}
+            disabled={loading || sessionEnded}
             style={{
               flex: 1,
               padding: "0.625rem 0.9375rem",

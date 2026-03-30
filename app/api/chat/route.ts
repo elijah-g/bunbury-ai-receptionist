@@ -13,8 +13,11 @@ const messageSchema = z.object({
   content: z.string().min(1).max(4000),
 });
 
+// Max user turns per demo session — keeps API costs predictable
+const SESSION_MESSAGE_LIMIT = 10;
+
 const requestSchema = z.object({
-  messages: z.array(messageSchema).min(1).max(50),
+  messages: z.array(messageSchema).min(1).max(100),
 });
 
 export async function POST(req: Request) {
@@ -24,6 +27,15 @@ export async function POST(req: Request) {
 
     if (!parsed.success) {
       return Response.json({ error: "Invalid request" }, { status: 400 });
+    }
+
+    // Count user turns — enforce session cap
+    const userTurns = parsed.data.messages.filter((m) => m.role === "user").length;
+    if (userTurns > SESSION_MESSAGE_LIMIT) {
+      return Response.json(
+        { error: "Demo session limit reached. Please refresh to start a new conversation." },
+        { status: 429 }
+      );
     }
 
     const config = getBusinessConfig();
