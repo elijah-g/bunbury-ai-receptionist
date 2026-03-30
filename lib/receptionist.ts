@@ -6,6 +6,13 @@ export interface BusinessConfig {
   leadNotificationEmail?: string;
 }
 
+export interface LeadData {
+  name?: string;
+  contact?: string; // email or phone
+  enquiryType?: string;
+  hasEnoughInfo: boolean; // true when name + contact are both present
+}
+
 export function getBusinessConfig(): BusinessConfig {
   return {
     businessName: process.env.BUSINESS_NAME ?? "Bunbury AI Demo Business",
@@ -44,4 +51,38 @@ Guidelines:
 - Never make up prices or promises you can't keep — say "I'll have someone get back to you with a quote"
 - If you've collected all the lead details (name + contact), confirm what you have and tell them to expect a follow-up
 - Don't discuss competitors or anything outside of your business role`;
+}
+
+export function extractLeadData(raw: unknown): LeadData {
+  if (!raw || typeof raw !== "object") {
+    return { hasEnoughInfo: false };
+  }
+
+  const obj = raw as Record<string, unknown>;
+
+  const name =
+    typeof obj.name === "string" && obj.name !== "null" && obj.name.trim() !== ""
+      ? obj.name.trim()
+      : undefined;
+
+  const contact =
+    typeof obj.contact === "string" &&
+    obj.contact !== "null" &&
+    obj.contact.trim() !== ""
+      ? obj.contact.trim()
+      : undefined;
+
+  const enquiryType =
+    typeof obj.enquiryType === "string" &&
+    obj.enquiryType !== "null" &&
+    obj.enquiryType.trim() !== ""
+      ? obj.enquiryType.trim()
+      : undefined;
+
+  return {
+    name,
+    contact,
+    enquiryType,
+    hasEnoughInfo: name !== undefined && contact !== undefined,
+  };
 }
